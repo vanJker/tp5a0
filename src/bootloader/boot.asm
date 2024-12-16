@@ -1,4 +1,7 @@
+%include "boot.inc"
+
 SECTION BOOT vstart=0x7c00
+    ; init registers
     mov ax, cs
     mov dx, ax
     mov es, ax
@@ -48,7 +51,75 @@ SECTION BOOT vstart=0x7c00
     mov byte [gs:0x18], '!'
     mov byte [gs:0x19], 0x92
 
-    jmp $
+    ; load loader from disk to memory
+    mov eax, LOADER_START_SECTOR
+    mov bx, LOADER_BASE_ADDR
+    mov cx, 4
+    call read_disk_m16
+
+    ; jump into loader
+    jmp LOADER_BASE_ADDR
+
+; Read data from disk in 16-bit mode.
+; @param    eax     LBA of start sector to be read
+; @param    bx      base address about write in memory
+; @param    cx      number of sector(s) to be read
+; @return   none
+read_disk_m16:
+    mov esi, eax
+    mov di, cx
+
+    ; first, setup number of sector(s) to be read
+    mov dx, 0x1f2
+    mov al, cl
+    out dx, al
+    mov eax, esi
+
+    ; second, setup LBA of start sector to be read
+    mov dx, 0x1f3
+    out dx, al
+
+    mov dx, 0x1f4
+    mov cl, 8
+    shr eax, cl
+    out dx, al
+
+    mov dx, 0x1f5
+    shr eax, cl
+    out dx, al
+
+    mov dx, 0x1f6
+    shr eax, cl
+    and al, 0x0f
+    or al, 0xe0
+    out dx, al
+
+    ; third, send read command
+    mov dx, 0x1f7
+    mov al, 0x20
+    out dx, al
+
+    ; fourth, check status of disk
+.not_ready:
+    nop
+    in al, dx
+    and al, 0x88
+    cmp al, 0x08
+    jnz .not_ready
+
+    ; fifth, read data from port
+    mov ax, di
+    mov dx, 256
+    mul dx
+    mov cx, ax ; port 0x1f0 is 16-bit equals 2 Bytes
+    mov dx, 0x1f0
+.read_data_loop:
+    in ax, dx
+    mov [bx], ax
+    add bx, 2
+    loop .read_data_loop
+
+    ret
 
 times 510 - ($ - $$) db 0
 db 0x55, 0xaa
