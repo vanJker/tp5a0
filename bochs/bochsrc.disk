@@ -1,0 +1,15 @@
+# Memory used by Bochs: 512MB
+megs: 512
+# Setup BIOS and VGA
+romimage: file=/usr/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest
+# Use disk instead of floppy
+boot: disk
+# Setup path of log
+log: ./build/bochs.out 
+# Disable mouse and enable keyboard
+mouse: enabled=0 
+keyboard: keymap=/usr/share/bochs/keymaps/x11-pc-us.map
+# Setup disk
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14 
+ata0-master: type=disk, path="./build/master.img", mode=flat
