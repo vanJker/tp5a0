@@ -11,13 +11,15 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
     mov dx, 0x1800
     int 0x10
 
+    ; detect memory capacity
+    call detect_memory
+    xchg bx, bx
+
     ; Enter protected mode
     ; 1. Enable A20
     in al, 0x92
     or al, 0x02
     out 0x92, al
-
-    xchg bx, bx
 
     ; 2. load GDT to GDTR
     lgdt [GDT_PTR]
@@ -28,6 +30,90 @@ SECTION LOADER vstart=LOADER_BASE_ADDR
     mov cr0, eax
 
     jmp dword SELECTOR_CODE:protected_mode_start
+
+; Detect memory capacity in 16-bit mode.
+; @param    void
+; @return   void
+detect_memory:
+    ; detect memory capacity by subfunction 0xE820 of int 0x15
+    xor ebx, ebx
+    mov edx, 0x534D4150
+    mov di, ARDS_BUF
+.e820_detect_memory_loop:
+    mov eax, 0xE820
+    mov ecx, 20
+    int 0x15
+    jc .e801_detect_memory_loop ; e820 failed try e801
+    add di, cx
+    inc word[ARDS_CNT]
+    cmp ebx, 0
+    jnz .e820_detect_memory_loop
+
+    mov cx, [ARDS_CNT]
+    mov ebx, ARDS_BUF
+    xor edx, edx
+.find_max_memory_area:
+    mov eax, [ebx]
+    add eax, [ebx + 8]
+    add ebx, 20
+    cmp edx, eax
+    jge .next_ards
+    mov edx, eax
+.next_ards:
+    loop .find_max_memory_area
+    jmp .detect_memory_end
+
+    ; detect memory capacity by subfunction 0xE801 of int 0x15
+.e801_detect_memory_loop:
+    mov ax, 0xE801
+    int 0x15
+    jc .88_detect_memory
+
+    mov cx, 0x400
+    mul cx ; equals to `mul ax, cx`, and result's high 16-bit in dx, low 16-bit in ax
+    shl edx, 16
+    and eax, 0x0000FFFF
+    or edx, eax
+    add edx, 0x100000
+
+    mov esi, edx
+    xor eax, eax
+    mov ax, bx
+    mov ecx, 0x10000
+    mul ecx ; equals to `mul eax, ecx`, and result's high 32-bit in edx, low 32-bit in eax
+    add esi, eax
+    mov edx, esi
+
+    jmp .detect_memory_end
+
+.88_detect_memory:
+    mov ah, 0x88
+    int 0x15
+    jc .error_hlt
+
+    mov cx, 0x400
+    mul cx ; equals to `mul ax, cx`, and result's high 16-bit in dx, low 16-bit in ax
+    shl edx, 16
+    and eax, 0x0000FFFF
+    or edx, eax
+    add edx, 0x100000
+
+    jmp .detect_memory_end
+
+.error_hlt:
+    ; print string by subfunction 0x13 of int 0x10
+    mov bp, detect_memory_error_message
+    mov cx, detect_memory_error_message_end - detect_memory_error_message
+    mov ax, 0x1301
+    mov bx, 0x001F
+    mov dx, 0x1800
+    int 0x10
+
+    jmp $
+
+.detect_memory_end:
+    mov [TOTAL_MEMORY_SIZE], edx
+    ret
 
 [bits 32]
 protected_mode_start:
@@ -81,7 +167,13 @@ protected_mode_start:
 
     jmp $
 
-loader_message db "Enter loader in real mode"
+loader_message:
+    db "Enter loader in real mode"
+loader_message_end:
+
+detect_memory_error_message:
+    db "Failed to detect memory capacity"
+detect_memory_error_message_end:
 
 GDT_BASE:
     dd 0x00000000
@@ -101,3 +193,10 @@ GDT_LIMIT equ GDT_SIZE - 1
 GDT_PTR:
     dw GDT_LIMIT
     dd GDT_BASE
+
+TOTAL_MEMORY_SIZE:
+    dd 0
+
+ARDS_CNT:
+    dw 0
+ARDS_BUF:

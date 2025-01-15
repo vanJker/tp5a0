@@ -1,7 +1,7 @@
 %include "boot.inc"
 
 SECTION BOOT vstart=0x7c00
-    ; init registers
+    ; init registers, note that cs equals 0 set by BIOS
     mov ax, cs
     mov dx, ax
     mov es, ax
@@ -54,7 +54,7 @@ SECTION BOOT vstart=0x7c00
     ; load loader from disk to memory
     mov eax, LOADER_START_SECTOR
     mov bx, LOADER_BASE_ADDR
-    mov cx, 4
+    mov cx, LOADER_SECTORS_CNT
     call read_disk_m16
 
     ; jump into loader
@@ -64,7 +64,7 @@ SECTION BOOT vstart=0x7c00
 ; @param    eax     LBA of start sector to be read
 ; @param    bx      base address about write in memory
 ; @param    cx      number of sector(s) to be read
-; @return   none
+; @return   void
 read_disk_m16:
     mov esi, eax
     mov di, cx

@@ -6,6 +6,9 @@ Include:=$(SRC)/include
 Bootloader:=$(SRC)/bootloader
 
 $(BUILD)/%.bin: $(Bootloader)/%.asm
+	@if [ ! -d "$(BUILD)" ]; then \
+	    mkdir $(BUILD);           \
+	fi
 	nasm -I $(Include) $< -o $@
 
 build: $(BUILD)/boot.bin $(BUILD)/loader.bin
@@ -17,6 +20,6 @@ run:
 	bochs -f $(BOCHS)/bochsrc.disk
 
 clean:
-	@rm -rf $(BUILD)/*
+	@rm -rf $(BUILD)
 
 .PHONY: build run
