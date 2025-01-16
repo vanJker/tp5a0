@@ -42,3 +42,12 @@ TI_LDT equ 0b100
 SELECTOR_CODE  equ (0x001 << 3) | TI_GDT | RPL_0
 SELECTOR_DATA  equ (0x002 << 3) | TI_GDT | RPL_0
 SELECTOR_VIDEO equ (0x003 << 3) | TI_GDT | RPL_0
+
+; Page Table
+PAGE_DIR_ADDR equ 0x100000
+PAGE_TBL_ADDR equ 0x101000
+PG_P equ (0x1 << 0)
+PG_RW_R equ (0x0 << 1)
+PG_RW_W equ (0x1 << 1)
+PG_US_U equ (0x0 << 2)
+PG_US_S equ (0x1 << 2)
